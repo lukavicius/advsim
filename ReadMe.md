@@ -1,4 +1,4 @@
-This repository contains the code for Assignment 1 for the course *EPA133A Advance Simulation*. In this assignment we developed two algorithms to process Bangladesh's infrastructure data from World Bank: 
+This repository contains the code and report for Assignment 1 for the course *EPA133A Advance Simulation*. In this assignment we identified data quality issues and developed two algorithms to process Bangladesh's infrastructure data from World Bank: 
 
 * one to fix road data quality issues
 * one to fix bridge data quality issues
@@ -7,13 +7,12 @@ This repository contains the code for Assignment 1 for the course *EPA133A Advan
 
 ##### Repository Content
 
-\- *\_roads.tsv:* Bangladesh Roads dataset
+* Assignment 1 Group 10 Report: Report explaining data quality issues and conceptualization and results of the algorithms 
+* *\_roads.tsv:* Bangladesh Roads dataset
+* *BBMMS\_overview.xlsx:* Bangladesh Bridges dataset
+* *process.ipynb:* notebook with preprocessing and implementation fixing algorithms
 
-\- *BBMMS\_overview.xlsx:* Bangladesh Bridges dataset
-
-\- *process.ipynb:* notebook with preprocessing and implementation fixing algorithms
-
-
+##### 
 
 ##### How to run
 
