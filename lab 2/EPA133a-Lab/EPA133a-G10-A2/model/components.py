@@ -1,3 +1,5 @@
+from random import random
+
 from mesa import Agent
 from enum import Enum
 
@@ -56,14 +58,25 @@ class Bridge(Infra):
 
         self.condition = condition
 
-        # TODO
-        self.delay_time = self.random.randrange(0, 10)
-        # print(self.delay_time)
+        # breakdown delay
+        if self.length > 200:
+            breakdown_delay = random.triangular(60, 240, 120)
+        elif 50 <= self.length <= 200:
+            breakdown_delay = random.uniform(45, 90)
+        elif 10 <= self.length < 50:
+            breakdown_delay = random.uniform(15, 60)
+        else:
+            breakdown_delay = random.uniform(10, 20)
 
-    # TODO
+        # driving over time delay, comparing with base time from assignemnt description
+        truck_speed_kmh = 48
+        speed_m_per_min = (truck_speed_kmh * 1000) / 60
+        driving_delay = self.length / speed_m_per_min
+
+        self.delay_time = int(round(breakdown_delay + driving_delay))
+
     def get_delay_time(self):
         return self.delay_time
-
 
 # ---------------------------------------------------------------
 class Link(Infra):
