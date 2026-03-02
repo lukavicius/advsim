@@ -24,7 +24,17 @@ def set_lat_lon_bound(lat_min, lat_max, lon_min, lon_max, edge_ratio=0.02):
     y_min = lat_max + lat_edge
     return y_min, y_max, x_min, x_max
 
-
+SCENARIOS = {
+    0: {"A": 0, "B": 0, "C": 0, "D": 0},
+    1: {"A": 0, "B": 0, "C": 0, "D": 5},
+    2: {"A": 0, "B": 0, "C": 0, "D": 10},
+    3: {"A": 0, "B": 0, "C": 5, "D": 10},
+    4: {"A": 0, "B": 0, "C": 10, "D": 20},
+    5: {"A": 0, "B": 5, "C": 10, "D": 20},
+    6: {"A": 0, "B": 10, "C": 20, "D": 40},
+    7: {"A": 5, "B": 10, "C": 20, "D": 40},
+    8: {"A": 10, "B": 20, "C": 40, "D": 80}
+}
 # ---------------------------------------------------------------
 class BangladeshModel(Model):
     """
@@ -55,8 +65,11 @@ class BangladeshModel(Model):
 
     step_time = 1
 
-    def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0):
-
+    def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0, scenario=0, run_number=0):
+        super().__init__(seed=seed)
+        self.scenario = scenario
+        self.run_number = run_number
+        self.output_data = []
         self.schedule = BaseScheduler(self)
         self.running = True
         self.path_ids_dict = defaultdict(lambda: pd.Series())
@@ -64,7 +77,33 @@ class BangladeshModel(Model):
         self.sources = []
         self.sinks = []
 
+        self.active_scenario = SCENARIOS.get(scenario, SCENARIOS[0])
+
         self.generate_model()
+
+    # def save_results(self):
+    #     df = pd.DataFrame(self.output_data)
+    #     filename = f"results_S{self.run_number}.csv"
+    #     df.to_csv(filename, index=False)
+    def get_average_driving_time(self):
+        """Calculates the mean travel time for all trucks that reached the sink."""
+        if not self.output_data:
+            # If no trucks reached the sink yet, return 0 to avoid errors
+            return 0
+
+        # Pull all travel times from the list we collected
+        times = [d['travel_time'] for d in self.output_data]
+        return sum(times) / len(times)
+
+    def save_scenario_results(self, replication_results):
+        """
+        Saves the 10 replications into a single CSV for this scenario.
+        Called from the run script, not from inside the model.
+        """
+        df = pd.DataFrame(replication_results)
+        filename = f"scenario{self.scenario}.csv"
+        df.to_csv(filename, index=False)
+        print(f" Saved results to {filename}")
 
     def generate_model(self):
         """
@@ -73,7 +112,8 @@ class BangladeshModel(Model):
         Warning: the labels are the same as the csv column labels
         """
 
-        df = pd.read_csv('../data/demo-2.csv')
+        df = pd.read_csv("../data/preprocessing/processed_data.csv")
+
 
         # a list of names of roads to be generated
         roads = ['N1']
@@ -136,7 +176,15 @@ class BangladeshModel(Model):
                     self.sources.append(agent.unique_id)
                     self.sinks.append(agent.unique_id)
                 elif model_type == 'bridge':
-                    agent = Bridge(row['id'], self, row['length'], row['name'], row['road'])
+                    agent = Bridge(row['id'], self, row['length'], row['name'], row['road'], row['condition'])
+
+                    condition = row['condition']
+                    chance = self.active_scenario.get(condition, 0) / 100
+                    agent.breakdown_prob = chance
+
+                    agent.breakdown_prob = chance
+
+
                 elif model_type == 'link':
                     agent = Link(row['id'], self, row['length'], row['name'], row['road'])
 

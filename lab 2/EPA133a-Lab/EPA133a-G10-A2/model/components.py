@@ -1,4 +1,4 @@
-from random import random
+import random
 
 from mesa import Agent
 from enum import Enum
@@ -55,28 +55,41 @@ class Bridge(Infra):
     def __init__(self, unique_id, model, length=0,
                  name='Unknown', road_name='Unknown', condition='Unknown'):
         super().__init__(unique_id, model, length, name, road_name)
-
         self.condition = condition
+        self.breakdown_prob = 0
+        self.is_broken = False
 
-        # breakdown delay
-        if self.length > 200:
-            breakdown_delay = random.triangular(60, 240, 120)
-        elif 50 <= self.length <= 200:
-            breakdown_delay = random.uniform(45, 90)
-        elif 10 <= self.length < 50:
-            breakdown_delay = random.uniform(15, 60)
-        else:
-            breakdown_delay = random.uniform(10, 20)
-
-        # driving over time delay, comparing with base time from assignemnt description
+    def get_delay_time(self):
+        """
+        Calculate delay time
+        """
+        # driving over time delay, comparing with base time from assignment description
         truck_speed_kmh = 48
         speed_m_per_min = (truck_speed_kmh * 1000) / 60
         driving_delay = self.length / speed_m_per_min
 
-        self.delay_time = int(round(breakdown_delay + driving_delay))
+        #check for breakdown
+        if not self.is_broken:
+            if self.model.random.random() < self.breakdown_prob:
+                self.is_broken = True
 
-    def get_delay_time(self):
-        return self.delay_time
+        breakdown_delay = 0
+        if self.is_broken:
+
+            if self.length > 200:
+                breakdown_delay = random.triangular(60, 240, 120)
+            elif 50 <= self.length <= 200:
+                breakdown_delay = random.uniform(45, 90)
+            elif 10 <= self.length < 50:
+                breakdown_delay = random.uniform(15, 60)
+            else:
+                breakdown_delay = random.uniform(10, 20)
+
+        return int(round(driving_delay + breakdown_delay))
+        #self.delay_time = int(round(breakdown_delay + driving_delay))
+
+    # def get_delay_time(self):
+    #     return self.delay_time
 
 # ---------------------------------------------------------------
 class Link(Infra):
@@ -95,13 +108,27 @@ class Sink(Infra):
     ...
 
     """
-    vehicle_removed_toggle = False
+    # vehicle_removed_toggle = False
+    #
+    # def remove(self, vehicle):
+    #     self.model.schedule.remove(vehicle)
+    #     self.vehicle_removed_toggle = not self.vehicle_removed_toggle
+    #     print(str(self) + ' REMOVE ' + str(vehicle))
+
+
 
     def remove(self, vehicle):
-        self.model.schedule.remove(vehicle)
-        self.vehicle_removed_toggle = not self.vehicle_removed_toggle
-        print(str(self) + ' REMOVE ' + str(vehicle))
+        # Calculate the time it took for this truck
+        travel_time = self.model.schedule.steps - vehicle.generated_at_step
 
+        # Add a dictionary to the model's list
+        self.model.output_data.append({
+            "truck_id": vehicle.unique_id,
+            "travel_time": travel_time
+        })
+
+        # Remove from simulation
+        self.model.schedule.remove(vehicle)
 
 # ---------------------------------------------------------------
 
