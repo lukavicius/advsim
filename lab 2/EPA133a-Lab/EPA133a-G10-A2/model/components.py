@@ -1,5 +1,6 @@
 import random
 
+import pandas as pd
 from mesa import Agent
 from enum import Enum
 
@@ -58,6 +59,8 @@ class Bridge(Infra):
         self.condition = condition
         self.breakdown_prob = 0
         self.is_broken = False
+        self.total_delay = 0
+        self.truck_count = 0
 
     def get_delay_time(self):
         """
@@ -77,19 +80,19 @@ class Bridge(Infra):
         if self.is_broken:
 
             if self.length > 200:
-                breakdown_delay = random.triangular(60, 240, 120)
+                breakdown_delay = self.model.random.triangular(60, 240, 120)
             elif 50 <= self.length <= 200:
-                breakdown_delay = random.uniform(45, 90)
+                breakdown_delay = self.model.random.uniform(45, 90)
             elif 10 <= self.length < 50:
-                breakdown_delay = random.uniform(15, 60)
+                breakdown_delay = self.model.random.uniform(15, 60)
             else:
-                breakdown_delay = random.uniform(10, 20)
+                breakdown_delay = self.model.random.uniform(10, 20)
+
+        self.total_delay += breakdown_delay
+        self.truck_count += 1
 
         return int(round(driving_delay + breakdown_delay))
         #self.delay_time = int(round(breakdown_delay + driving_delay))
-
-    # def get_delay_time(self):
-    #     return self.delay_time
 
 # ---------------------------------------------------------------
 class Link(Infra):
@@ -174,7 +177,7 @@ class Source(Infra):
                 Source.truck_counter += 1
                 self.vehicle_count += 1
                 self.vehicle_generated_flag = True
-                print(str(self) + " GENERATE " + str(agent))
+                # print(str(self) + " GENERATE " + str(agent))
         except Exception as e:
             print("Oops!", e.__class__, "occurred.")
 
@@ -231,8 +234,8 @@ class Vehicle(Agent):
 
     """
 
-    # 50 km/h translated into meter per min
-    speed = 50 * 1000 / 60
+    # 48 km/h translated into meter per min
+    speed = 48 * 1000 / 60
     # One tick represents 1 minute
     step_time = 1
 
@@ -284,7 +287,7 @@ class Vehicle(Agent):
         """
         To print the vehicle trajectory at each step
         """
-        print(self)
+        # print(self)
 
     def drive(self):
 

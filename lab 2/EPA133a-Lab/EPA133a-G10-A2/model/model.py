@@ -212,5 +212,25 @@ class BangladeshModel(Model):
         """
         self.schedule.step()
 
+    def get_bridge_delay_summary(self):
+        results = []
+
+        for agent in self.schedule.agents:  # <-- use scheduler's public agents list
+            if isinstance(agent, Bridge):
+                results.append({
+                    "bridge_id": agent.unique_id,
+                    "name": agent.name,
+                    "condition": agent.condition,
+                    "length": agent.length,
+                    "total_delay": agent.total_delay,
+                    "truck_count": agent.truck_count,
+                    "avg_delay_per_truck":
+                        agent.total_delay / agent.truck_count
+                        if agent.truck_count > 0 else 0
+                })
+
+        df = pd.DataFrame(results)
+        return df.sort_values("total_delay", ascending=False)
+
 
 # EOF -----------------------------------------------------------
