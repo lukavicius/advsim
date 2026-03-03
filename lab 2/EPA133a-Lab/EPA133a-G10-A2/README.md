@@ -1,24 +1,32 @@
 # Example README File
 
-Created by: EPA133a Group xx
+Created by: EPA133a Group 10
 
-|    Name     | Student Number |
-| :---------: | :------------- |
-| Mary White  | 1234567        |
-| David Brown | 7654321        |
+|    Name             | Student Number |
+| Angelica Saglimbeni | 6556671        |
+| Elena Deckert       | 6580300        |
+| Finn Maingay        | 5415586        |
+| Tadas Lukavičius    | 5525047        |
+| Viola Clerici       | 6542034        |
 
 ## Introduction
+This repository contains the code and report for Assignment 2 for the course *EPA133A Advance Simulation*. In this assignment we ...
 
-Every project should have a README file to help a first-time user understand what it is about and how they might be able to use it. This file is where you (as a group) shall provide the information needed by the TAs to evaluate and grade your work.
 
-If you are looking for information about the Demo model of Assignment 2, navigate to the [model/README.md](model/README.md) in the [model](model) directory. Have **fun** modeling in Python!
+##### Repository Content
 
-## How to Use
+* *Assignment 2 Group 10 Report:* Report explaining data preprocessing, model design and experiment results
+* *EPA133a-G10-A2*: Folder with code for this assignment where:
+  * *data*: preprocessing of data in [data-preprocessing.ipynb](data/preprocessing/data-preprocessing.ipynb) and preprocessed data in [processed_data.csv](data/preprocessing/processed_data.csv)
+  * *model*: model python files:
+    * *components.py*: model compoment/agents design
+    * *model.py*: road model simulation design
+    * *model_run.py*: to run scenario experiments
+    * *model_viz.py*: to run model with visualization
+  * *experiment*: scenario experiment and top bridges depending on scenario results in csvs.
 
-Include whatever you think is necessary for someone to understand your work. The README file is usually the first file someone will see and open. It doesn't need to explain what might be obvious, but it should point out the most important things for someone looking at your work. For example, how to launch your program, what are the main files, where to find them, etc.
+##### 
 
-### Format
+##### How to run
 
-Most README files for data or software projects are now written in Markdown format, like this document. There are some different flavours, but they are easy to write. See here for more information https://www.markdownguide.org/basic-syntax
-
-Most IDEs can render Markdown files directly.
+To run the scenarios run  *model_run.py* and to visualise model run *model_viz.py*.
