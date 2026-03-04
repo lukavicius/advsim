@@ -111,13 +111,12 @@ class Sink(Infra):
     ...
 
     """
-    # vehicle_removed_toggle = False
-    #
-    # def remove(self, vehicle):
-    #     self.model.schedule.remove(vehicle)
-    #     self.vehicle_removed_toggle = not self.vehicle_removed_toggle
-    #     print(str(self) + ' REMOVE ' + str(vehicle))
+    vehicle_removed_toggle = False
 
+    def remove(self, vehicle):
+        self.model.schedule.remove(vehicle)
+        self.vehicle_removed_toggle = not self.vehicle_removed_toggle
+        print(str(self) + ' REMOVE ' + str(vehicle))
 
 
     def remove(self, vehicle):
