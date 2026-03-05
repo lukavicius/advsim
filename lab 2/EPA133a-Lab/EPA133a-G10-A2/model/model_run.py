@@ -69,7 +69,7 @@ for s_num in range(9):
     bridge_df = bridge_df.sort_values("mean_total_delay", ascending=False)
 
     top10 = bridge_df.head(10)
-    top10.to_csv(f"top10_bridges_scenario{s_num}.csv", index=False)
+    top10.to_csv(f"experiment/top10_bridges_scenario{s_num}.csv", index=False)
 
 
     df = pd.DataFrame(replication_results)
@@ -89,7 +89,7 @@ for s_num in range(9):
     df["ci_95_lower"] = ci_low
     df["ci_95_upper"] = ci_high
 
-    df.to_csv(f"scenario{s_num}.csv", index=False)
+    df.to_csv(f"experiment/scenario{s_num}.csv", index=False)
 
     print(f"Scenario {s_num} results saved.")
     print(f"Mean = {mean:.2f} min | 95% CI = [{ci_low:.2f}, {ci_high:.2f}]")

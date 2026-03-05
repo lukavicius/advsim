@@ -71,13 +71,8 @@ class Bridge(Infra):
         speed_m_per_min = (truck_speed_kmh * 1000) / 60
         driving_delay = self.length / speed_m_per_min
 
-        #check for breakdown
-        if not self.is_broken:
-            if self.model.random.random() < self.breakdown_prob:
-                self.is_broken = True
-
         breakdown_delay = 0
-        if self.is_broken:
+        if self.model.random.random() < self.breakdown_prob:
 
             if self.length > 200:
                 breakdown_delay = self.model.random.triangular(60, 240, 120)
