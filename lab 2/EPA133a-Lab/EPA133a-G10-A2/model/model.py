@@ -24,6 +24,7 @@ def set_lat_lon_bound(lat_min, lat_max, lon_min, lon_max, edge_ratio=0.02):
     y_min = lat_max + lat_edge
     return y_min, y_max, x_min, x_max
 
+# Scenario set up
 SCENARIOS = {
     0: {"A": 0, "B": 0, "C": 0, "D": 0},
     1: {"A": 0, "B": 0, "C": 0, "D": 5},

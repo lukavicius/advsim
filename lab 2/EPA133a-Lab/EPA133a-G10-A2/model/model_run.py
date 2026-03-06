@@ -7,6 +7,7 @@ import sys
 # 5 days * 24 hours * 60 minutes
 run_length = 7200
 
+# set up seeds
 np.random.seed(42)  # fixed master seed
 max_seed = np.iinfo(np.int32).max
 seeds = np.random.randint(0, max_seed, size=10)
@@ -14,6 +15,7 @@ seeds = np.random.randint(0, max_seed, size=10)
 print("Seeds used for all scenarios:")
 print(seeds)
 
+# Run all scenarios
 for s_num in range(9):
 
     print(f"\n=== Running Scenario {s_num} ===")
@@ -30,9 +32,10 @@ for s_num in range(9):
                       desc=f"Scenario {s_num} - Rep {rep_index+1}",
                       leave=False):
             model.step()
-
+        # calculate average time
         avg_time = model.get_average_driving_time()
 
+        # log results
         replication_results.append({
             "scenario": s_num,
             "replication": rep_index + 1,
@@ -40,6 +43,7 @@ for s_num in range(9):
             "average_driving_time": avg_time
         })
 
+        # log bridge delays
         bridge_df = model.get_bridge_delay_summary()
 
         for _, row in bridge_df.iterrows():
@@ -53,6 +57,7 @@ for s_num in range(9):
 
     bridge_results = []
 
+    # Calculate bridge delay statistics
     for bid, delays in bridge_delay_accumulator.items():
         mean = np.mean(delays)
         std = np.std(delays)
@@ -65,6 +70,7 @@ for s_num in range(9):
             "ci95": ci95
         })
 
+    # save bridge delay results
     bridge_df = pd.DataFrame(bridge_results)
     bridge_df = bridge_df.sort_values("mean_total_delay", ascending=False)
 
@@ -74,6 +80,7 @@ for s_num in range(9):
 
     df = pd.DataFrame(replication_results)
 
+    # calculate driving time statistics
     mean = df["average_driving_time"].mean()
     std = df["average_driving_time"].std()
     n = len(df)
@@ -88,7 +95,7 @@ for s_num in range(9):
     df["standard_error"] = stderr
     df["ci_95_lower"] = ci_low
     df["ci_95_upper"] = ci_high
-
+    # save experiment results
     df.to_csv(f"experiment/scenario{s_num}.csv", index=False)
 
     print(f"Scenario {s_num} results saved.")

@@ -71,6 +71,7 @@ class Bridge(Infra):
         speed_m_per_min = (truck_speed_kmh * 1000) / 60
         driving_delay = self.length / speed_m_per_min
 
+        # Calculating obstruction delay based on probabilities and bridge quality
         breakdown_delay = 0
         if self.model.random.random() < self.breakdown_prob:
 
@@ -83,11 +84,12 @@ class Bridge(Infra):
             else:
                 breakdown_delay = self.model.random.uniform(10, 20)
 
+        # log breakdown information
         self.total_delay += breakdown_delay
         self.truck_count += 1
 
+        # return driving and obstruction delay
         return int(round(driving_delay + breakdown_delay))
-        #self.delay_time = int(round(breakdown_delay + driving_delay))
 
 # ---------------------------------------------------------------
 class Link(Infra):
