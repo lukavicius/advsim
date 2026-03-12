@@ -4,8 +4,7 @@ from mesa.space import ContinuousSpace
 from components import Source, Sink, SourceSink, Bridge, Link, Intersection
 import pandas as pd
 from collections import defaultdict
-
-
+import networkx as nx
 # ---------------------------------------------------------------
 def set_lat_lon_bound(lat_min, lat_max, lon_min, lon_max, edge_ratio=0.02):
     """
@@ -55,7 +54,7 @@ class BangladeshModel(Model):
 
     step_time = 1
 
-    file_name = '../data/demo-4.csv'
+    file_name = '../data/preprocessing/processed_data.csv'
 
     def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0):
 
@@ -65,6 +64,8 @@ class BangladeshModel(Model):
         self.space = None
         self.sources = []
         self.sinks = []
+
+        self.graph = nx.Graph() # network: creates graph
 
         self.generate_model()
 
@@ -104,6 +105,21 @@ class BangladeshModel(Model):
                 path_ids.reset_index(inplace=True, drop=True)
                 self.path_ids_dict[path_ids[0], path_ids.iloc[-1]] = path_ids
                 self.path_ids_dict[path_ids[0], None] = path_ids
+
+                # network: adds edges
+                path_ids_list = df_objects_on_road['id'].tolist()
+
+                for i in range(len(path_ids_list) - 1):
+                    node1 = path_ids_list[i]
+                    node2 = path_ids_list[i + 1]
+
+                    pos1 = df_objects_on_road.iloc[i]
+                    pos2 = df_objects_on_road.iloc[i + 1]
+
+                    distance = ((pos1['lat'] - pos2['lat']) ** 2 +
+                                (pos1['lon'] - pos2['lon']) ** 2) ** 0.5
+
+                    self.graph.add_edge(node1, node2, weight=distance)
 
         # put back to df with selected roads so that min and max and be easily calculated
         df = pd.concat(df_objects_all)
@@ -157,6 +173,8 @@ class BangladeshModel(Model):
                     self.space.place_agent(agent, (x, y))
                     agent.pos = (x, y)
 
+                    self.graph.add_node(agent.unique_id) # network: adds nodes to graph
+
     def get_random_route(self, source):
         """
         pick up a random route given an origin
@@ -166,7 +184,26 @@ class BangladeshModel(Model):
             sink = self.random.choice(self.sinks)
             if sink is not source:
                 break
-        return self.path_ids_dict[source, sink]
+
+        # network
+        # check if route already cached
+        if (source, sink) in self.path_ids_dict:
+            return self.path_ids_dict[source, sink]
+
+        # if not compute shortest path
+        route = nx.shortest_path(
+            self.graph,
+            source=source,
+            target=sink,
+            weight='weight'
+        )
+
+        route_series = pd.Series(route)
+
+        # cache the route
+        self.path_ids_dict[source, sink] = route_series
+
+        return route_series
 
     # TODO
     def get_route(self, source):

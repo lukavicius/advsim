@@ -1,11 +1,15 @@
 # Example README File
 
-Created by: EPA133a Group xx
+Created by: EPA133a Group 10
 
-|    Name     | Student Number |
-| :---------: | :------------- |
-| Mary White  | 1234567        |
-| David Brown | 7654321        |
+| Name                | Student Number |
+|---------------------|----------------|
+| Angelica Saglimbeni | 6556671        |
+| Elena Deckert       | 6580300        |
+| Finn Maingay        | 5415586        |
+| Tadas Lukavičius    | 5525047        |
+| Viola Clerici       | 6542034        |
+
 
 ## Introduction
 
