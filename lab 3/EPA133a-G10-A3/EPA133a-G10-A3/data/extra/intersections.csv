@@ -1,0 +1,20 @@
+road,lrp_id,chainage_km,lrp_type,description,intersecting_roads,latitude,longitude,source_file
+N1,LRP009a,8.763,"Side Road, Left",Road to Sylhet (N2),N2,23.7060833,90.5215271,N1.lrps.htm
+N1,LRP012c,11.936,"Side Road, Right",Right to Syedpur (R113) left to Joydebpur N105),N105,23.6904163,90.546583,N1.lrps.htm
+N1,LRP084a,81.846,"Side Road, Left",Road to Brahmanbaria(N102),N102,23.4789716,91.118166,N1.lrps.htm
+N1,LRP148a,145.409,Cross Road,Intersection with N104,N104,23.0095556,91.3813604,N1.lrps.htm
+N1,LRP232a,229.065,"Side Road, Right","N111, Port Connecting Road",N111,22.3937774,91.7588056,N1.lrps.htm
+N1,LRP260c,256.809,"Side Road, Left",Road to Kalurghat (N107),N107,22.3158889,91.9235827,N1.lrps.htm
+N1,LRP293a,289.612,"Side Road, Left",Road to Bandarban(N108),N108,22.1021667,92.0740549,N1.lrps.htm
+N1,LRP378c,373.475,"Side Road, Left",Ramu old Section (N109),N109,21.4284993,92.0951941,N1.lrps.htm
+N1,LRP386c,381.481,"Side Road, Right","N110,Link road-Cox' Bazar, (Labonir more)",N110,21.4258604,92.023166,N1.lrps.htm
+N2,LRP012a,11.464,Cross Road,Intersection with N105,N105,23.785333,90.5685549,N2.lrps.htm
+N2,LRP086a,85.823,"Side Road, Right",Road to Mainamoti(N102),N102,24.0508333,91.1144444,N2.lrps.htm
+N2,LRP117b,116.294,"Side Road, Right",Road to Chunarughat(N204),N204,24.1478608,91.3464441,N2.lrps.htm
+N2,LRP142c,141.309,"Side Road, Right",N204 to Chunarughat,N204,24.2676938,91.4768882,N2.lrps.htm
+N2,LRP146b,145.961,"Side Road, Right",Road to Srimongal(N207),N207,24.2947219,91.5100833,N2.lrps.htm
+N2,LRP191b,190.892,"Side Road, Right",Road to Moulavo Bazar(N207),N207,24.6264993,91.6774993,N2.lrps.htm
+N2,LRP228c,227.756,"Side Road, Left",N209,N209,24.8776938,91.8752771,N2.lrps.htm
+N2,LRP228d,227.757,"Side Road, Right",N208 to Moulovibazar,N208,24.8776938,91.8752771,N2.lrps.htm
+N2,LRP231b,229.888,"Side Road, Left",Road to Keen Bridge(N206),N206,24.8937497,91.878416,N2.lrps.htm
+N2,LRP239a,237.923,"Side Road, Right",N210,N210,24.9163056,91.949583,N2.lrps.htm
