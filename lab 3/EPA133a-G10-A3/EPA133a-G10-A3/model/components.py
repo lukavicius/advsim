@@ -55,14 +55,47 @@ class Bridge(Infra):
         super().__init__(unique_id, model, length, name, road_name)
 
         self.condition = condition
+        # self.breakdown_prob = 0
+        self.is_broken = False
+        self.total_delay = 0
+        self.truck_count = 0
+        self.condition = condition
+        scenario_probs = self.model.active_scenario
+        self.breakdown_prob = scenario_probs.get(str(condition).strip(), 0) / 100
 
-        # TODO
-        self.delay_time = self.random.randrange(0, 10)
-        # print(self.delay_time)
+        # # TODO
+        # self.delay_time = self.random.randrange(0, 10)
+        # # print(self.delay_time)
 
     # TODO
     def get_delay_time(self):
-        return self.delay_time
+        """
+        Calculate delay time
+        """
+        # driving over time delay, comparing with base time from assignment description
+        truck_speed_kmh = 48
+        speed_m_per_min = (truck_speed_kmh * 1000) / 60
+        driving_delay = self.length / speed_m_per_min
+
+        # Calculating obstruction delay based on probabilities and bridge quality
+        breakdown_delay = 0
+        if self.model.random.random() < self.breakdown_prob:
+
+            if self.length > 200:
+                breakdown_delay = self.model.random.triangular(60, 240, 120)
+            elif 50 <= self.length <= 200:
+                breakdown_delay = self.model.random.uniform(45, 90)
+            elif 10 <= self.length < 50:
+                breakdown_delay = self.model.random.uniform(15, 60)
+            else:
+                breakdown_delay = self.model.random.uniform(10, 20)
+
+        # log breakdown information
+        self.total_delay += breakdown_delay
+        self.truck_count += 1
+
+        # return driving and obstruction delay
+        return int(round(driving_delay + breakdown_delay))
 
 
 # ---------------------------------------------------------------
@@ -92,7 +125,7 @@ class Sink(Infra):
     def remove(self, vehicle):
         self.model.schedule.remove(vehicle)
         self.vehicle_removed_toggle = not self.vehicle_removed_toggle
-        print(str(self) + ' REMOVE ' + str(vehicle))
+        # print(str(self) + ' REMOVE ' + str(vehicle))
 
 
 # ---------------------------------------------------------------
@@ -139,7 +172,7 @@ class Source(Infra):
                 Source.truck_counter += 1
                 self.vehicle_count += 1
                 self.vehicle_generated_flag = True
-                print(str(self) + " GENERATE " + str(agent))
+                # print(str(self) + " GENERATE " + str(agent))
         except Exception as e:
             print("Oops!", e.__class__, "occurred.")
 
@@ -249,7 +282,7 @@ class Vehicle(Agent):
         """
         To print the vehicle trajectory at each step
         """
-        print(self)
+        # print(self)
 
     def drive(self):
 
@@ -275,10 +308,17 @@ class Vehicle(Agent):
         next_infra = self.model.schedule._agents[next_id]  # Access to protected member _agents
 
         if isinstance(next_infra, Sink):
-            # arrive at the sink
             self.arrive_at_next(next_infra, 0)
             self.removed_at_step = self.model.schedule.steps
-            self.location.remove(self)
+
+            travel_time = self.removed_at_step - self.generated_at_step
+            self.model.output_data.append({
+                'travel_time': travel_time,
+                'generated_at': self.generated_at_step,
+                'removed_at': self.removed_at_step,
+            })
+
+            next_infra.remove(self)  # call remove on next_infra, not self.location
             return
         elif isinstance(next_infra, Bridge):
             self.waiting_time = next_infra.get_delay_time()
