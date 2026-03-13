@@ -22,7 +22,15 @@ def set_lat_lon_bound(lat_min, lat_max, lon_min, lon_max, edge_ratio=0.02):
     x_min = lon_min - lon_edge
     y_min = lat_max + lat_edge
     return y_min, y_max, x_min, x_max
-
+#-------------------------------------------------------------------------
+# Scenario set up
+SCENARIOS = {
+    0: {"A": 0, "B": 0, "C": 0, "D": 0},
+    1: {"A": 0, "B": 0, "C": 0, "D": 5},
+    2: {"A": 0, "B": 0, "C": 5, "D": 10},
+    3: {"A": 0, "B": 5, "C": 10, "D": 20},
+    4: {"A": 5, "B": 10, "C": 20, "D": 40},
+}
 
 # ---------------------------------------------------------------
 class BangladeshModel(Model):
@@ -56,8 +64,12 @@ class BangladeshModel(Model):
 
     file_name = '../data/preprocessing/processed_data.csv'
 
-    def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0):
+    def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0, scenario_A3 = 0, run_number=0):
 
+        super().__init__(seed=seed)
+        self.scenario_A3= scenario_A3
+        self.run_number = run_number
+        self.output_data = []
         self.schedule = BaseScheduler(self)
         self.running = True
         self.path_ids_dict = defaultdict(lambda: pd.Series())
@@ -66,8 +78,29 @@ class BangladeshModel(Model):
         self.sinks = []
 
         self.graph = nx.Graph() # network: creates graph
-
+        self.active_scenario = SCENARIOS.get(scenario_A3,SCENARIOS[0])
         self.generate_model()
+
+    def get_average_driving_time(self):
+        """Calculates the mean travel time for all trucks that reached the sink."""
+        if not self.output_data:
+            # If no trucks reached the sink yet, return 0 to avoid errors
+            return 0
+
+        # Pull all travel times from the list we collected
+        times = [d['travel_time'] for d in self.output_data]
+        return sum(times) / len(times)
+
+    def save_scenario_results(self, replication_results):
+        """
+        Saves the 10 replications into a single CSV for this scenario.
+        Called from the run script, not from inside the model.
+        """
+        df = pd.DataFrame(replication_results)
+        filename = f"scenario{self.scenario_A3}.csv"
+        df.to_csv(filename, index=False)
+        print(f" Saved results to {filename}")
+
 
     def generate_model(self):
         """
@@ -130,6 +163,15 @@ class BangladeshModel(Model):
             df['lon'].max(),
             0.05
         )
+# viola and finn
+        df_full = pd.concat(df_objects_all)
+        for _, row in df_full[df_full['model_type'] == 'intersection'].iterrows():
+            int_id = row['id']
+            others = df_full[df_full['model_type'] != 'intersection']
+            dists = ((others['lat'] - row['lat']) ** 2 + (others['lon'] - row['lon']) ** 2) ** 0.5
+            for idx in dists.nsmallest(2).index:
+                neighbor_id = df_full.loc[idx, 'id']
+                self.graph.add_edge(int_id, neighbor_id, weight=dists[idx])
 
         # ContinuousSpace from the Mesa package;
         # not to be confused with the SimpleContinuousModule visualization
@@ -148,13 +190,17 @@ class BangladeshModel(Model):
                 else:
                     name = name.strip()
 
-                if model_type == 'source':
-                    agent = Source(row['id'], self, row['length'], name, row['road'])
-                    self.sources.append(agent.unique_id)
-                elif model_type == 'sink':
-                    agent = Sink(row['id'], self, row['length'], name, row['road'])
-                    self.sinks.append(agent.unique_id)
-                elif model_type == 'sourcesink':
+                # I think we can get rid of this since we only have soucesink
+
+                # if model_type == 'source':
+                #     agent = Source(row['id'], self, row['length'], name, row['road'])
+                #     self.sources.append(agent.unique_id)
+                # elif model_type == 'sink':
+                #     agent = Sink(row['id'], self, row['length'], name, row['road'])
+                #     self.sinks.append(agent.unique_id)
+
+
+                if model_type == 'sourcesink':
                     agent = SourceSink(row['id'], self, row['length'], name, row['road'])
                     self.sources.append(agent.unique_id)
                     self.sinks.append(agent.unique_id)
@@ -207,7 +253,7 @@ class BangladeshModel(Model):
 
     # TODO
     def get_route(self, source):
-        return self.get_straight_route(source)
+        return self.get_random_route(source)
 
     def get_straight_route(self, source):
         """
@@ -220,5 +266,24 @@ class BangladeshModel(Model):
         Advance the simulation by one step.
         """
         self.schedule.step()
+
+    def get_bridge_delay_summary(self):
+        results = []
+        for agent in self.schedule.agents:  # <-- use scheduler's public agents list
+            if isinstance(agent, Bridge):
+                results.append({
+                    "bridge_id": agent.unique_id,
+                    "name": agent.name,
+                    "condition": agent.condition,
+                    "length": agent.length,
+                    "total_delay": agent.total_delay,
+                    "truck_count": agent.truck_count,
+                    "avg_delay_per_truck":
+                        agent.total_delay / agent.truck_count
+                        if agent.truck_count > 0 else 0
+                })
+
+        df = pd.DataFrame(results)
+        return df.sort_values("total_delay", ascending=False)
 
 # EOF -----------------------------------------------------------
