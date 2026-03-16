@@ -1,4 +1,4 @@
-# from model import BangladeshModel
+ # from model import BangladeshModel
 #
 # """
 #     Run simulation
@@ -84,21 +84,21 @@ for s_num in range(5):
     bridge_results = []
 
     # Calculate bridge delay statistics
-    for bid, delays in bridge_delay_accumulator.items():
-        mean = np.mean(delays)
-        std = np.std(delays)
-        ci95 = 1.96 * std / np.sqrt(len(delays))
-
-        bridge_results.append({
-            "bridge_id": bid,
-            "mean_total_delay": mean,
-            "std": std,
-            "ci95": ci95
-        })
-
-    # save bridge delay results
-    bridge_df = pd.DataFrame(bridge_results)
-    bridge_df = bridge_df.sort_values("mean_total_delay", ascending=False)
+    # for bid, delays in bridge_delay_accumulator.items():
+    #     mean = np.mean(delays)
+    #     std = np.std(delays)
+    #     ci95 = 1.96 * std / np.sqrt(len(delays))
+    #
+    #     bridge_results.append({
+    #         "bridge_id": bid,
+    #         "mean_total_delay": mean,
+    #         "std": std,
+    #         "ci95": ci95
+    #     })
+    #
+    # # save bridge delay results
+    # bridge_df = pd.DataFrame(bridge_results)
+    # bridge_df = bridge_df.sort_values("mean_total_delay", ascending=False)
 
     # top10 = bridge_df.head(10)
     # top10.to_csv(f"experiment/top10_bridges_scenario{s_num}.csv", index=False)
