@@ -253,6 +253,7 @@ class Vehicle(Agent):
         self.waiting_time = 0
         self.waited_at = None
         self.removed_at_step = None
+        self.route_length = 0
 
     def __str__(self):
         return "Vehicle" + str(self.unique_id) + \
@@ -303,38 +304,55 @@ class Vehicle(Agent):
         vehicle shall move to the next object with the given distance
         """
 
-        self.location_index += 1
-        next_id = self.path_ids[self.location_index]
-        next_infra = self.model.schedule._agents[next_id]  # Access to protected member _agents
+        while distance > 0 and self.location_index < len(self.path_ids) - 1:
 
-        if isinstance(next_infra, Sink):
-            self.arrive_at_next(next_infra, 0)
-            self.removed_at_step = self.model.schedule.steps
+            self.location_index += 1
+            next_id = self.path_ids[self.location_index]
+            next_infra = self.model.schedule._agents[next_id]  # Access to protected member _agents
 
-            travel_time = self.removed_at_step - self.generated_at_step
-            self.model.output_data.append({
-                'travel_time': travel_time,
-                'generated_at': self.generated_at_step,
-                'removed_at': self.removed_at_step,
-            })
+            # add the length to the next node to route length
+            edge_data = self.model.graph.get_edge_data(self.location.unique_id, next_infra.unique_id)
+            if edge_data is not None:
+                self.route_length += edge_data["weight"]
+            else:
+                self.route_length += next_infra.length
 
-            next_infra.remove(self)  # call remove on next_infra, not self.location
-            return
-        elif isinstance(next_infra, Bridge):
-            self.waiting_time = next_infra.get_delay_time()
-            if self.waiting_time > 0:
-                # arrive at the bridge and wait
-                self.arrive_at_next(next_infra, 0)
-                self.state = Vehicle.State.WAIT
+            #if isinstance(next_infra, Sink):
+            if isinstance(next_infra, Sink) and self.location_index == len(self.path_ids) - 1: #also check if it is the desired sink not any sink
+
+                #self.arrive_at_next(next_infra, 0)
+                self.removed_at_step = self.model.schedule.steps
+
+                travel_time = self.removed_at_step - self.generated_at_step
+                self.model.output_data.append({
+                    'travel_time': travel_time,
+                    'route_length': self.route_length,
+                    'generated_at': self.generated_at_step,
+                    'removed_at': self.removed_at_step,
+                })
+
+                next_infra.remove(self)  # call remove on next_infra, not self.location
                 return
-            # else, continue driving
 
-        if next_infra.length > distance:
-            # stay on this object:
-            self.arrive_at_next(next_infra, distance)
-        else:
-            # drive to next object:
-            self.drive_to_next(distance - next_infra.length)
+            elif isinstance(next_infra, Bridge):
+                self.waiting_time = next_infra.get_delay_time()
+                if self.waiting_time > 0:
+                    # arrive at the bridge and wait
+                    self.arrive_at_next(next_infra, 0)
+                    self.state = Vehicle.State.WAIT
+                    return
+                # else, continue driving
+
+            #if next_infra.length > distance:
+            if next_infra.length >= distance:
+                # stay on this object:
+                self.arrive_at_next(next_infra, distance)
+                distance = 0
+            else:
+                self.arrive_at_next(next_infra, next_infra.length)
+                distance -= next_infra.length
+                # drive to next object:
+                #self.drive_to_next(distance - next_infra.length)
 
     def arrive_at_next(self, next_infra, location_offset):
         """

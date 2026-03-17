@@ -48,6 +48,7 @@ for s_num in range(5):
 
     replication_results = []
     bridge_delay_accumulator = {}
+    routes_results = []
     # tqdm for replications
     for rep_index, seed in enumerate(tqdm(seeds, desc=f"Scenario {s_num} Replications")):
 
@@ -59,15 +60,33 @@ for s_num in range(5):
                       leave=False):
             model.step()
         # calculate average time
-        avg_time = model.get_average_driving_time()
+        driving_times = model.get_driving_times()
+        avg_time = sum(driving_times) / len(driving_times)
+        route_lengths = model.get_route_lengths()
+        avg_distance = sum(route_lengths) / len(route_lengths) / 1000
+        min_distance = min(route_lengths) / 1000
+        max_distance = max(route_lengths) / 1000
 
         # log results
         replication_results.append({
             "scenario": s_num,
             "replication": rep_index + 1,
             "seed": int(seed),
-            "average_driving_time": avg_time
+            "average_driving_time": avg_time,
+            "average_distance_km": avg_distance,
+            "time_per_km": avg_time / avg_distance if avg_distance > 0 else 0,
+            "shortest_route_km": min_distance,
+            "longest_route_km": max_distance
         })
+
+        # log routes
+        for rl, dt in zip(route_lengths, driving_times):
+            routes_results.append({
+                "scenario": s_num,
+                "replication": rep_index + 1,
+                "route_length_km": rl / 1000,  # convert meters to km
+                "driving_time_min": dt
+            })
 
         # log bridge delays
         bridge_df = model.get_bridge_delay_summary()
@@ -126,3 +145,7 @@ for s_num in range(5):
 
     print(f"Scenario {s_num} results saved.")
     print(f"Mean = {mean:.2f} min | 95% CI = [{ci_low:.2f}, {ci_high:.2f}]")
+
+    # crete csv for route length info
+    df_routes = pd.DataFrame(routes_results)
+    df_routes.to_csv(f"experiment/scenario{s_num}_routes.csv", index=False)

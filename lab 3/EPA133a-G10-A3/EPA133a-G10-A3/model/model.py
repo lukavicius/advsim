@@ -5,6 +5,7 @@ from components import Source, Sink, SourceSink, Bridge, Link, Intersection
 import pandas as pd
 from collections import defaultdict
 import networkx as nx
+import math
 # ---------------------------------------------------------------
 def set_lat_lon_bound(lat_min, lat_max, lon_min, lon_max, edge_ratio=0.02):
     """
@@ -81,7 +82,7 @@ class BangladeshModel(Model):
         self.active_scenario = SCENARIOS.get(scenario_A3,SCENARIOS[0])
         self.generate_model()
 
-    def get_average_driving_time(self):
+    def get_driving_times(self):
         """Calculates the mean travel time for all trucks that reached the sink."""
         if not self.output_data:
             # If no trucks reached the sink yet, return 0 to avoid errors
@@ -89,7 +90,14 @@ class BangladeshModel(Model):
 
         # Pull all travel times from the list we collected
         times = [d['travel_time'] for d in self.output_data]
-        return sum(times) / len(times)
+        return times
+
+    def get_route_lengths(self):
+        if not self.output_data:
+            return 0
+
+        lengths = [d['route_length'] for d in self.output_data if d['route_length'] is not None]
+        return lengths
 
     def save_scenario_results(self, replication_results):
         """
@@ -141,7 +149,6 @@ class BangladeshModel(Model):
 
                 # network: adds edges
                 path_ids_list = df_objects_on_road['id'].tolist()
-
                 for i in range(len(path_ids_list) - 1):
                     node1 = path_ids_list[i]
                     node2 = path_ids_list[i + 1]
@@ -149,8 +156,9 @@ class BangladeshModel(Model):
                     pos1 = df_objects_on_road.iloc[i]
                     pos2 = df_objects_on_road.iloc[i + 1]
 
-                    distance = ((pos1['lat'] - pos2['lat']) ** 2 +
-                                (pos1['lon'] - pos2['lon']) ** 2) ** 0.5
+                    #distance = ((pos1['lat'] - pos2['lat']) ** 2 + (pos1['lon'] - pos2['lon']) ** 2) ** 0.5
+
+                    distance = self.get_harvesian_distance(pos1['lat'], pos2['lat'], pos1['lon'], pos2['lon'])
 
                     self.graph.add_edge(node1, node2, weight=distance)
 
@@ -168,10 +176,20 @@ class BangladeshModel(Model):
         for _, row in df_full[df_full['model_type'] == 'intersection'].iterrows():
             int_id = row['id']
             others = df_full[df_full['model_type'] != 'intersection']
-            dists = ((others['lat'] - row['lat']) ** 2 + (others['lon'] - row['lon']) ** 2) ** 0.5
-            for idx in dists.nsmallest(2).index:
+            #dists = ((others['lat'] - row['lat']) ** 2 + (others['lon'] - row['lon']) ** 2) ** 0.5
+            dists = []
+            for idx, other_row in others.iterrows():
+                distance = self.get_harvesian_distance(row['lat'], other_row['lat'], row['lon'], other_row['lon'])
+                dists.append((idx, distance))
+
+            #for idx in dists.nsmallest(2).index:
+            #  neighbor_id = df_full.loc[idx, 'id']
+            #   self.graph.add_edge(int_id, neighbor_id, weight=dists[idx])
+
+            dists.sort(key=lambda x: x[1])
+            for idx, distance in dists[:2]:
                 neighbor_id = df_full.loc[idx, 'id']
-                self.graph.add_edge(int_id, neighbor_id, weight=dists[idx])
+                self.graph.add_edge(int_id, neighbor_id, weight=distance)
 
         # ContinuousSpace from the Mesa package;
         # not to be confused with the SimpleContinuousModule visualization
@@ -221,10 +239,28 @@ class BangladeshModel(Model):
 
                     self.graph.add_node(agent.unique_id) # network: adds nodes to graph
 
+    def get_harvesian_distance(self, lat1, lat2, lon1, lon2):
+        R = 6371000  # Earth radius in meters
+
+        lat1 = math.radians(lat1)
+        lon1 = math.radians(lon1)
+        lat2 = math.radians(lat2)
+        lon2 = math.radians(lon2)
+
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+
+        a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+        distance = 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+        return distance
+
+
     def get_random_route(self, source):
         """
         pick up a random route given an origin
         """
+
         while True:
             # different source and sink
             sink = self.random.choice(self.sinks)
@@ -243,6 +279,7 @@ class BangladeshModel(Model):
             target=sink,
             weight='weight'
         )
+        #print(len(route))
 
         route_series = pd.Series(route)
 
