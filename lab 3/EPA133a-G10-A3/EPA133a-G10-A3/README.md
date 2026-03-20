@@ -21,8 +21,9 @@ Multiple scenarios are evaluated, and the script runs the simulation and generat
 * *Assignment 3 Group 10 Report:* Report explaining data preprocessing, model design and experiment results for this assignment.
 * *EPA133a-G10-A3*: Folder with code for this assignment where:
   * *data*: 
-    * preprocessing of data in [data-preprocessing.ipynb](data/preprocessing/data-preprocessing.ipynb), preprocessed data in [processed_data.csv](data/preprocessing/processed_data.csv) 
+    * preprocessing of data in [data-preprocessing.ipynb](data/preprocessing/data-preprocessing.ipynb), preprocessed data in [processed_data.csv](data/preprocessing/processed_data.csv). Roads N1, N2 and side roads are selected here.
     * finding of intersections in find_intersections.ipynb and found intersections in intersections.csv.
+    * bonus assignment; the code for finding the more accurate locations of the intersections is below the code for determining the intersections as asked for in the general assignment.
   * *model*: model python files:
     * *components.py*: behaviour and characteristics of the model components are defined, including agents such as trucks and infrastructure elements such as bridges.
     * *model.py*: contains the BangladeshModel simulation design which is a subclass of Mesa Model. It reads the preprocessed data to generate the transport model. It now also initialises the networkx graph and Mesa environment. 
