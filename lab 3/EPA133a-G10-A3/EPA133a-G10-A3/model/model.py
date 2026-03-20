@@ -5,322 +5,220 @@ from components import Source, Sink, SourceSink, Bridge, Link, Intersection
 import pandas as pd
 from collections import defaultdict
 import networkx as nx
-import math
-# ---------------------------------------------------------------
+
+
 def set_lat_lon_bound(lat_min, lat_max, lon_min, lon_max, edge_ratio=0.02):
-    """
-    Set the HTML continuous space canvas bounding box (for visualization)
-    give the min and max latitudes and Longitudes in Decimal Degrees (DD)
-
-    Add white borders at edges (default 2%) of the bounding box
-    """
-
     lat_edge = (lat_max - lat_min) * edge_ratio
     lon_edge = (lon_max - lon_min) * edge_ratio
-
     x_max = lon_max + lon_edge
     y_max = lat_min - lat_edge
     x_min = lon_min - lon_edge
     y_min = lat_max + lat_edge
     return y_min, y_max, x_min, x_max
-#-------------------------------------------------------------------------
-# Scenario set up
+
+# ---------------------------------------------------------------
 SCENARIOS = {
-    0: {"A": 0, "B": 0, "C": 0, "D": 0},
-    1: {"A": 0, "B": 0, "C": 0, "D": 5},
-    2: {"A": 0, "B": 0, "C": 5, "D": 10},
-    3: {"A": 0, "B": 5, "C": 10, "D": 20},
-    4: {"A": 5, "B": 10, "C": 20, "D": 40},
+    0: {"A": 0,  "B": 0,  "C": 0,  "D": 0},
+    1: {"A": 0,  "B": 0,  "C": 0,  "D": 5},
+    2: {"A": 0,  "B": 0,  "C": 5,  "D": 10},
+    3: {"A": 0,  "B": 5,  "C": 10, "D": 20},
+    4: {"A": 5,  "B": 10, "C": 20, "D": 40},
 }
 
 # ---------------------------------------------------------------
 class BangladeshModel(Model):
-    """
-    The main (top-level) simulation model
-
-    One tick represents one minute; this can be changed
-    but the distance calculation need to be adapted accordingly
-
-    Class Attributes:
-    -----------------
-    step_time: int
-        step_time = 1 # 1 step is 1 min
-
-    path_ids_dict: defaultdict
-        Key: (origin, destination)
-        Value: the shortest path (Infra component IDs) from an origin to a destination
-
-        Only straight paths in the Demo are added into the dict;
-        when there is a more complex network layout, the paths need to be managed differently
-
-    sources: list
-        all sources in the network
-
-    sinks: list
-        all sinks in the network
-
-    """
 
     step_time = 1
-
     file_name = '../data/preprocessing/processed_data.csv'
 
-    def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0, scenario_A3 = 0, run_number=0):
+    def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0,
+                 scenario_A3=0, run_number=0):
 
         super().__init__(seed=seed)
-        self.scenario_A3= scenario_A3
-        self.run_number = run_number
-        self.output_data = []
-        self.schedule = BaseScheduler(self)
-        self.running = True
-        self.path_ids_dict = defaultdict(lambda: pd.Series())
-        self.space = None
-        self.sources = []
-        self.sinks = []
+        self.scenario_A3  = scenario_A3
+        self.run_number   = run_number
+        self.output_data  = []
 
-        self.graph = nx.Graph() # network: creates graph
-        self.active_scenario = SCENARIOS.get(scenario_A3,SCENARIOS[0])
+        self.schedule      = BaseScheduler(self)
+        self.running       = True
+        self.path_ids_dict = defaultdict(lambda: pd.Series(dtype=int))
+        self.space         = None
+        self.sources       = []
+        self.sinks         = []
+        self.graph         = nx.Graph()
+
+        self.active_scenario = SCENARIOS.get(scenario_A3, SCENARIOS[0])
+
         self.generate_model()
 
-    def get_driving_times(self):
-        """Calculates the mean travel time for all trucks that reached the sink."""
-        if not self.output_data:
-            # If no trucks reached the sink yet, return 0 to avoid errors
-            return 0
-
-        # Pull all travel times from the list we collected
-        times = [d['travel_time'] for d in self.output_data]
-        return times
-
-    def get_route_lengths(self):
-        if not self.output_data:
-            return 0
-
-        lengths = [d['route_length'] for d in self.output_data if d['route_length'] is not None]
-        return lengths
-
-    def save_scenario_results(self, replication_results):
-        """
-        Saves the 10 replications into a single CSV for this scenario.
-        Called from the run script, not from inside the model.
-        """
-        df = pd.DataFrame(replication_results)
-        filename = f"scenario{self.scenario_A3}.csv"
-        df.to_csv(filename, index=False)
-        print(f" Saved results to {filename}")
-
-
     def generate_model(self):
-        """
-        generate the simulation model according to the csv file component information
-
-        Warning: the labels are the same as the csv column labels
-        """
 
         df = pd.read_csv(self.file_name)
 
-        # a list of names of roads to be generated
-        # TODO You can also read in the road column to generate this list automatically
         roads = df['road'].unique().tolist()
-
         df_objects_all = []
+
         for road in roads:
-            # Select all the objects on a particular road in the original order as in the cvs
             df_objects_on_road = df[df['road'] == road]
+            if df_objects_on_road.empty:
+                continue
 
-            if not df_objects_on_road.empty:
-                df_objects_all.append(df_objects_on_road)
+            df_objects_all.append(df_objects_on_road)
 
-                """
-                Set the path 
-                1. get the serie of object IDs on a given road in the cvs in the original order
-                2. add the (straight) path to the path_ids_dict
-                3. put the path in reversed order and reindex
-                4. add the path to the path_ids_dict so that the vehicles can drive backwards too
-                """
-                path_ids = df_objects_on_road['id']
-                path_ids.reset_index(inplace=True, drop=True)
-                self.path_ids_dict[path_ids[0], path_ids.iloc[-1]] = path_ids
-                self.path_ids_dict[path_ids[0], None] = path_ids
-                path_ids = path_ids[::-1]
-                path_ids.reset_index(inplace=True, drop=True)
-                self.path_ids_dict[path_ids[0], path_ids.iloc[-1]] = path_ids
-                self.path_ids_dict[path_ids[0], None] = path_ids
+            # Get the sequence of IDs as they appear in the CSV (the canonical path)
+            path_ids = df_objects_on_road['id'].reset_index(drop=True)
+            path_ids_rev = path_ids[::-1].reset_index(drop=True)
 
-                # network: adds edges
-                path_ids_list = df_objects_on_road['id'].tolist()
-                for i in range(len(path_ids_list) - 1):
-                    node1 = path_ids_list[i]
-                    node2 = path_ids_list[i + 1]
+            # Straight-path fallback (source -> None)
+            self.path_ids_dict[path_ids.iloc[0], None] = path_ids
+            self.path_ids_dict[path_ids_rev.iloc[0], None] = path_ids_rev
 
-                    pos1 = df_objects_on_road.iloc[i]
-                    pos2 = df_objects_on_road.iloc[i + 1]
+            # Pre-load forward and reverse endpoint pairs from CSV order,
+            # as described in the assignment: path_ids_dict[(start, end)] = path
+            self.path_ids_dict[path_ids.iloc[0], path_ids.iloc[-1]] = path_ids
+            self.path_ids_dict[path_ids.iloc[-1], path_ids.iloc[0]] = path_ids_rev
 
-                    #distance = ((pos1['lat'] - pos2['lat']) ** 2 + (pos1['lon'] - pos2['lon']) ** 2) ** 0.5
-
-                    distance = self.get_harvesian_distance(pos1['lat'], pos2['lat'], pos1['lon'], pos2['lon'])
-
-                    self.graph.add_edge(node1, node2, weight=distance)
-
-        # put back to df with selected roads so that min and max and be easily calculated
-        df = pd.concat(df_objects_all)
+        # Space bounds
+        df_all = pd.concat(df_objects_all)
         y_min, y_max, x_min, x_max = set_lat_lon_bound(
-            df['lat'].min(),
-            df['lat'].max(),
-            df['lon'].min(),
-            df['lon'].max(),
+            df_all['lat'].min(), df_all['lat'].max(),
+            df_all['lon'].min(), df_all['lon'].max(),
             0.05
         )
-# viola and finn
-        df_full = pd.concat(df_objects_all)
-        for _, row in df_full[df_full['model_type'] == 'intersection'].iterrows():
-            int_id = row['id']
-            others = df_full[df_full['model_type'] != 'intersection']
-            #dists = ((others['lat'] - row['lat']) ** 2 + (others['lon'] - row['lon']) ** 2) ** 0.5
-            dists = []
-            for idx, other_row in others.iterrows():
-                distance = self.get_harvesian_distance(row['lat'], other_row['lat'], row['lon'], other_row['lon'])
-                dists.append((idx, distance))
-
-            #for idx in dists.nsmallest(2).index:
-            #  neighbor_id = df_full.loc[idx, 'id']
-            #   self.graph.add_edge(int_id, neighbor_id, weight=dists[idx])
-
-            dists.sort(key=lambda x: x[1])
-            for idx, distance in dists[:2]:
-                neighbor_id = df_full.loc[idx, 'id']
-                self.graph.add_edge(int_id, neighbor_id, weight=distance)
-
-        # ContinuousSpace from the Mesa package;
-        # not to be confused with the SimpleContinuousModule visualization
         self.space = ContinuousSpace(x_max, y_max, True, x_min, y_min)
 
-        for df in df_objects_all:
-            for _, row in df.iterrows():  # index, row in ...
+        # Create agents and build graph
+        created_ids = set()
 
-                # create agents according to model_type
+        for df_road in df_objects_all:
+            prev_id = None
+            prev_length = 0.0  # track source node length for correct edge weights
+
+            for _, row in df_road.iterrows():
+
                 model_type = row['model_type'].strip()
-                agent = None
+                agent_id   = int(row['id'])
+                name       = "" if pd.isna(row['name']) else str(row['name']).strip()
+                length     = float(row['length']) if not pd.isna(row['length']) else 0.0
+                agent      = None
 
-                name = row['name']
-                if pd.isna(name):
-                    name = ""
-                else:
-                    name = name.strip()
+                # Create the Mesa agent only once per ID.
+                if agent_id not in created_ids:
+                    if model_type == 'sourcesink':
+                        agent = SourceSink(agent_id, self, length, name, row['road'])
+                        self.sources.append(agent_id)
+                        self.sinks.append(agent_id)
+                    elif model_type == 'bridge':
+                        agent = Bridge(agent_id, self, length, name, row['road'],
+                                       row['condition'])
+                    elif model_type == 'link':
+                        agent = Link(agent_id, self, length, name, row['road'])
+                    elif model_type == 'intersection':
+                        agent = Intersection(agent_id, self, length, name, row['road'])
 
-                # I think we can get rid of this since we only have soucesink
+                    if agent:
+                        self.schedule.add(agent)
+                        self.space.place_agent(agent, (row['lon'], row['lat']))
+                        agent.pos = (row['lon'], row['lat'])
+                        created_ids.add(agent_id)
 
-                # if model_type == 'source':
-                #     agent = Source(row['id'], self, row['length'], name, row['road'])
-                #     self.sources.append(agent.unique_id)
-                # elif model_type == 'sink':
-                #     agent = Sink(row['id'], self, row['length'], name, row['road'])
-                #     self.sinks.append(agent.unique_id)
+                # Always add graph node + edge — even for already-created intersections.
+                # This is what stitches the two roads together through the shared node.
+                if agent_id not in self.graph.nodes:
+                    self.graph.add_node(agent_id)
 
+                if prev_id is not None and not self.graph.has_edge(prev_id, agent_id):
+                    # Use prev_length (the source node's length) as the edge weight,
+                    # since a truck spends time traversing the component it is leaving.
+                    self.graph.add_edge(prev_id, agent_id, weight=prev_length)
 
-                if model_type == 'sourcesink':
-                    agent = SourceSink(row['id'], self, row['length'], name, row['road'])
-                    self.sources.append(agent.unique_id)
-                    self.sinks.append(agent.unique_id)
-                elif model_type == 'bridge':
-                    agent = Bridge(row['id'], self, row['length'], name, row['road'], row['condition'])
-                elif model_type == 'link':
-                    agent = Link(row['id'], self, row['length'], name, row['road'])
-                elif model_type == 'intersection':
-                    if not row['id'] in self.schedule._agents:
-                        agent = Intersection(row['id'], self, row['length'], name, row['road'])
+                prev_id = agent_id
+                prev_length = length  # carry forward for the next edge
 
-                if agent:
-                    self.schedule.add(agent)
-                    y = row['lat']
-                    x = row['lon']
-                    self.space.place_agent(agent, (x, y))
-                    agent.pos = (x, y)
+        zero_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d['weight'] == 0]
+        print(f"[GRAPH] {len(zero_edges)} zero-weight edges: {zero_edges[:20]}")
 
-                    self.graph.add_node(agent.unique_id) # network: adds nodes to graph
+        n_comp = nx.number_connected_components(self.graph)
+        print(f"[GRAPH] {self.graph.number_of_nodes()} nodes, "
+              f"{self.graph.number_of_edges()} edges, "
+              f"{n_comp} connected component(s)")
+        if n_comp > 1:
+            print(f"[GRAPH] WARNING: {n_comp} disconnected components — "
+                  f"check intersection IDs in processed_data.csv")
 
-    def get_harvesian_distance(self, lat1, lat2, lon1, lon2):
-        R = 6371000  # Earth radius in meters
+    def get_route(self, source_id):
+        return self.get_random_route(source_id)
 
-        lat1 = math.radians(lat1)
-        lon1 = math.radians(lon1)
-        lat2 = math.radians(lat2)
-        lon2 = math.radians(lon2)
-
-        dlat = lat2 - lat1
-        dlon = lon2 - lon1
-
-        a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
-        distance = 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-        return distance
-
-
-    def get_random_route(self, source):
-        """
-        pick up a random route given an origin
-        """
-
+    def get_random_route(self, source_id):
+        attempts = 0
         while True:
-            # different source and sink
-            sink = self.random.choice(self.sinks)
-            if sink is not source:
-                break
+            sink_id = self.random.choice(self.sinks)
+            if sink_id == source_id:
+                continue
 
-        # network
-        # check if route already cached
-        if (source, sink) in self.path_ids_dict:
-            return self.path_ids_dict[source, sink]
+            # Check cached path
+            cached = self.path_ids_dict[source_id, sink_id]
+            if not cached.empty:
+                if len(cached) >= 15:
+                    return cached
+                continue
 
-        # if not compute shortest path
-        route = nx.shortest_path(
-            self.graph,
-            source=source,
-            target=sink,
-            weight='weight'
-        )
-        #print(len(route))
+            # Try NetworkX shortest path
+            try:
+                node_path = nx.shortest_path(self.graph, source=source_id,
+                                             target=sink_id, weight='weight')
+                if len(node_path) < 15:
+                    continue
+                path_series = pd.Series(node_path, dtype=int)
+                self.path_ids_dict[source_id, sink_id] = path_series
+                self.path_ids_dict[sink_id, source_id] = path_series[::-1].reset_index(drop=True)
+                return path_series
+            except (nx.NetworkXNoPath, nx.NodeNotFound):
+                attempts += 1
+                if attempts > 50:
+                    return self.get_straight_route(source_id)
 
-        route_series = pd.Series(route)
-
-        # cache the route
-        self.path_ids_dict[source, sink] = route_series
-
-        return route_series
-
-    # TODO
-    def get_route(self, source):
-        return self.get_random_route(source)
-
-    def get_straight_route(self, source):
-        """
-        pick up a straight route given an origin
-        """
-        return self.path_ids_dict[source, None]
+    def get_straight_route(self, source_id):
+        return self.path_ids_dict[source_id, None]
 
     def step(self):
-        """
-        Advance the simulation by one step.
-        """
         self.schedule.step()
 
+    def get_driving_times(self):
+        if not self.output_data:
+            return [0]
+        return [d['travel_time'] for d in self.output_data]
+
+    def get_route_lengths(self):
+        if not self.output_data:
+            return [0]
+        return [d['route_length'] for d in self.output_data if d['route_length'] is not None]
+
     def get_bridge_delay_summary(self):
-        results = []
-        for agent in self.schedule.agents:  # <-- use scheduler's public agents list
+        records = []
+        for agent in self.schedule.agents:
             if isinstance(agent, Bridge):
-                results.append({
-                    "bridge_id": agent.unique_id,
-                    "name": agent.name,
-                    "condition": agent.condition,
-                    "length": agent.length,
-                    "total_delay": agent.total_delay,
-                    "truck_count": agent.truck_count,
-                    "avg_delay_per_truck":
-                        agent.total_delay / agent.truck_count
-                        if agent.truck_count > 0 else 0
+                records.append({
+                    'bridge_id':   agent.unique_id,
+                    'bridge_name': agent.name,
+                    'total_delay': agent.total_delay,
+                    'truck_count': agent.truck_count,
                 })
+        return pd.DataFrame(records)
 
-        df = pd.DataFrame(results)
-        return df.sort_values("total_delay", ascending=False)
+    def save_scenario_results(self, replication_results):
+        df = pd.DataFrame(replication_results)
+        df.to_csv(f"scenario{self.scenario_A3}.csv", index=False)
+        print(f"Saved results to scenario{self.scenario_A3}.csv")
 
+    def get_unique_od_pairs(self):
+        if not self.output_data:
+            return []
+        pairs = set((d['source_id'], d['sink_id']) for d in self.output_data)
+        for source_id, sink_id in sorted(pairs):
+            src = self.schedule._agents.get(source_id)
+            snk = self.schedule._agents.get(sink_id)
+            print(f"  {source_id} ({src.name if src else '?'}) "
+                  f"-> {sink_id} ({snk.name if snk else '?'})")
+        return pairs
 # EOF -----------------------------------------------------------

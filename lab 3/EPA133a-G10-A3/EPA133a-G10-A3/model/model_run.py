@@ -1,29 +1,3 @@
- # from model import BangladeshModel
-#
-# """
-#     Run simulation
-#     Print output at terminal
-# """
-#
-# # ---------------------------------------------------------------
-#
-# # run time 5 x 24 hours; 1 tick 1 minute
-# run_length = 5 * 24 * 60
-#
-# # run time 1000 ticks
-# # run_length = 1000
-#
-# seed = 1234567
-#
-# sim_model = BangladeshModel(seed=seed)
-#
-# # Check if the seed is set
-# print("SEED " + str(sim_model._seed))
-#
-# # One run with given steps
-# for i in range(run_length):
-#     sim_model.step()
-
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
@@ -55,9 +29,7 @@ for s_num in range(5):
         model = BangladeshModel(scenario_A3=s_num, seed=int(seed))
 
         # tqdm for simulation steps
-        for _ in tqdm(range(run_length),
-                      desc=f"Scenario {s_num} - Rep {rep_index+1}",
-                      leave=False):
+        for _ in range(run_length):
             model.step()
         # calculate average time
         driving_times = model.get_driving_times()
@@ -79,13 +51,33 @@ for s_num in range(5):
             "longest_route_km": max_distance
         })
 
+        print("\n=== Unique completed O-D pairs ===")
+        model.get_unique_od_pairs()
+
+        print({
+            "scenario": s_num,
+            "replication": rep_index + 1,
+            "seed": int(seed),
+            "average_driving_time": avg_time,
+            "average_distance_km": avg_distance,
+            "time_per_km": avg_time / avg_distance if avg_distance > 0 else 0,
+            "shortest_route_km": min_distance,
+            "longest_route_km": max_distance
+        })
+
         # log routes
-        for rl, dt in zip(route_lengths, driving_times):
+        for entry in model.output_data:
+            src = model.schedule._agents.get(entry['source_id'])
+            snk = model.schedule._agents.get(entry['sink_id'])
             routes_results.append({
                 "scenario": s_num,
                 "replication": rep_index + 1,
-                "route_length_km": rl / 1000,  # convert meters to km
-                "driving_time_min": dt
+                "route_length_km": entry['route_length'] / 1000,
+                "driving_time_min": entry['travel_time'],
+                "source_id": entry['source_id'],
+                "source_name": src.name if src else '?',
+                "sink_id": entry['sink_id'],
+                "sink_name": snk.name if snk else '?',
             })
 
         # log bridge delays
@@ -101,27 +93,6 @@ for s_num in range(5):
             bridge_delay_accumulator[bid].append(row["total_delay"])
 
     bridge_results = []
-
-    # Calculate bridge delay statistics
-    # for bid, delays in bridge_delay_accumulator.items():
-    #     mean = np.mean(delays)
-    #     std = np.std(delays)
-    #     ci95 = 1.96 * std / np.sqrt(len(delays))
-    #
-    #     bridge_results.append({
-    #         "bridge_id": bid,
-    #         "mean_total_delay": mean,
-    #         "std": std,
-    #         "ci95": ci95
-    #     })
-    #
-    # # save bridge delay results
-    # bridge_df = pd.DataFrame(bridge_results)
-    # bridge_df = bridge_df.sort_values("mean_total_delay", ascending=False)
-
-    # top10 = bridge_df.head(10)
-    # top10.to_csv(f"experiment/top10_bridges_scenario{s_num}.csv", index=False)
-
 
     df_A3 = pd.DataFrame(replication_results)
 
