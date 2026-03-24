@@ -49,6 +49,9 @@ class BangladeshModel(Model):
 
         self.active_scenario = SCENARIOS.get(scenario_A3, SCENARIOS[0])
 
+        self.traffic_data = pd.read_csv("../data/traffic/traffic_metrics_per_timestep.csv")
+        self.traffic_dict = self.traffic_data.set_index("Road").to_dict("index")
+
         self.generate_model()
 
     def generate_model(self):
@@ -146,6 +149,7 @@ class BangladeshModel(Model):
             print(f"[GRAPH] WARNING: {n_comp} disconnected components — "
                   f"check intersection IDs in processed_data.csv")
         self.infra_dict = {a.unique_id: a for a in self.schedule.agents}
+
     def get_route(self, source_id):
         return self.get_random_route(source_id)
 

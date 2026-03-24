@@ -10,7 +10,7 @@ run_length = 7200
 # set up seeds
 np.random.seed(42)  # fixed master seed
 max_seed = np.iinfo(np.int32).max
-seeds = np.random.randint(0, max_seed, size=10)
+seeds = np.random.randint(0, max_seed, size=1)
 
 print("Seeds used for all scenarios:")
 print(seeds)
@@ -29,7 +29,7 @@ for s_num in range(5):
         model = BangladeshModel(scenario_A3=s_num, seed=int(seed))
 
         # tqdm for simulation steps
-        for _ in range(run_length):
+        for _, _ in enumerate(tqdm(range(run_length), desc=f"scenario running")):
             model.step()
         # calculate average time
         driving_times = model.get_driving_times()

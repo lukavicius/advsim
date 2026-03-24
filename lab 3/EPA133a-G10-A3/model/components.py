@@ -152,19 +152,45 @@ class Source(Infra):
     """
 
     truck_counter = 0
-    generation_frequency = 5
-    vehicle_generated_flag = False
+
+    def __init__(self, unique_id, model, length=0,
+                 name='Unknown', road_name='Unknown'):
+        super().__init__(unique_id, model, length, name, road_name)
+
+        self.vehicle_generated_flag = False
+
+        # Get traffic rate from model (per timestep, already split per end)
+        if road_name in self.model.traffic_dict:
+            # Sum only truck types (you can adjust this!)
+            data = self.model.traffic_dict[road_name]
+
+            self.lambda_rate = (
+                    data.get('Heavy Truck per timestep (each end)', 0) +
+                    data.get('Medium Truck per timestep (each end)', 0) +
+                    data.get('Small Truck per timestep (each end)', 0)
+            )
+        else:
+            self.lambda_rate = 0
 
     def step(self):
-        if self.model.schedule.steps % self.generation_frequency == 0:
+        self.vehicle_generated_flag = False
+
+        lam = self.lambda_rate
+
+        if lam <= 0:
+            return
+
+        # Normal approximation
+        std = lam ** 0.5
+        num_trucks = int(round(self.model.random.gauss(lam, std)))
+
+        # Avoid negative trucks
+        num_trucks = max(0, num_trucks)
+
+        for _ in range(num_trucks):
             self.generate_truck()
-        else:
-            self.vehicle_generated_flag = False
 
     def generate_truck(self):
-        """
-        Generates a truck, assigns its path, and adds it to the schedule.
-        """
         try:
             agent = Vehicle('Truck' + str(Source.truck_counter), self.model, self)
             if agent:
