@@ -1,6 +1,8 @@
 from mesa import Agent
 from enum import Enum
 
+from networkx import volume
+
 
 # ---------------------------------------------------------------
 class Infra(Agent):
@@ -80,12 +82,23 @@ class Bridge(Infra):
     def get_delay_time(self):
         """
         Calculate delay time for a truck crossing this bridge.
-        Includes base driving delay plus stochastic breakdown delay.
+        Includes base driving delay plus stochastic breakdown and congestion delays.
         """
         # Base driving time at truck speed (48 km/h)
         truck_speed_kmh = 48
         speed_m_per_min = (truck_speed_kmh * 1000) / 60
         driving_delay = self.length / speed_m_per_min
+
+        # Add congestion delay based on traffic
+        traffic = self.model.traffic_dict.get(self.road_name, {})
+
+        volume = (
+            traffic.get('Heavy Truck per timestep (each end)', 0) +
+            traffic.get('Medium Truck per timestep (each end)', 0) +
+            traffic.get('Small Truck per timestep (each end)', 0)
+        )
+
+        congestion_delay = max(0, 0.1404 * volume - 1.0627)
 
         # Stochastic breakdown delay based on condition probability
         breakdown_delay = 0
@@ -99,10 +112,10 @@ class Bridge(Infra):
             else:
                 breakdown_delay = self.model.random.uniform(10, 20)
 
-        self.total_delay += breakdown_delay
+        self.total_delay += breakdown_delay + driving_delay + congestion_delay
         self.truck_count += 1
 
-        return int(round(driving_delay + breakdown_delay))
+        return self.total_delay
 
 
 # ---------------------------------------------------------------
