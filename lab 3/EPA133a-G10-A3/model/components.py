@@ -98,7 +98,22 @@ class Bridge(Infra):
             traffic.get('Small Truck per timestep (each end)', 0)
         )
 
-        congestion_delay = max(0, 0.1404 * volume - 1.0627)
+        volume_per_hour = volume * 12
+
+        if volume_per_hour < 200:
+            congestion_delay = 0
+
+        elif volume_per_hour < 500:
+            congestion_delay = 6
+
+        elif volume_per_hour < 700:
+            congestion_delay = 8
+
+        elif volume_per_hour < 1100:
+            congestion_delay = 10.5
+
+        else:
+            congestion_delay = 14
 
         # Stochastic breakdown delay based on condition probability
         breakdown_delay = 0
