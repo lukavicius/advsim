@@ -45,13 +45,13 @@ class Infra(Agent):
 
     def get_congestion_delay(self):
         n = self.vehicle_count
-        if n < 10:
+        if n < 8:
             delay = 0
-        elif n < 20:
+        elif n < 16:
             delay = 5
-        elif n < 40:
+        elif n < 25:
             delay = 8
-        elif n < 50:
+        elif n < 40:
             delay = 10.5
         else:
             delay = 14
