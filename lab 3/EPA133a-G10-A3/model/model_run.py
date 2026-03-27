@@ -51,20 +51,6 @@ for s_num in range(5):
             "longest_route_km": max_distance
         })
 
-        print("\n=== Unique completed O-D pairs ===")
-        model.get_unique_od_pairs()
-
-        print({
-            "scenario": s_num,
-            "replication": rep_index + 1,
-            "seed": int(seed),
-            "average_driving_time": avg_time,
-            "average_distance_km": avg_distance,
-            "time_per_km": avg_time / avg_distance if avg_distance > 0 else 0,
-            "shortest_route_km": min_distance,
-            "longest_route_km": max_distance
-        })
-
         # log routes
         for entry in model.output_data:
             src = model.schedule._agents.get(entry['source_id'])
@@ -80,17 +66,11 @@ for s_num in range(5):
                 "sink_name": snk.name if snk else '?',
             })
 
-        # log bridge delays
-        bridge_df = model.get_bridge_delay_summary()
-
-        for _, row in bridge_df.iterrows():
-
-            bid = row["bridge_id"]
-
-            if bid not in bridge_delay_accumulator:
-                bridge_delay_accumulator[bid] = []
-
-            bridge_delay_accumulator[bid].append(row["total_delay"])
+        hotspots = model.get_traffic_hotspots(top_n=100)
+        vuln_overall, vuln_by_type = model.get_vulnerability_summary(top_n=100)
+        hotspots.to_csv(f"experiment/scenario{s_num}_rep{rep_index + 1}_hotspots.csv", index=False)
+        vuln_overall.to_csv(f"experiment/scenario{s_num}_rep{rep_index + 1}_vulnerability.csv", index=False)
+        vuln_by_type.to_csv(f"experiment/scenario{s_num}_rep{rep_index + 1}_vulnerability_by_type.csv", index=False)
 
     bridge_results = []
 

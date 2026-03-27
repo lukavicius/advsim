@@ -26,6 +26,9 @@ class Infra(Agent):
         self.name = name
         self.road_name = road_name
         self.vehicle_count = 0
+        self.total_delay = 0
+        self.truck_count = 0
+        self.throughput = 0
 
     def step(self):
         def step(self):
@@ -42,16 +45,20 @@ class Infra(Agent):
 
     def get_congestion_delay(self):
         n = self.vehicle_count
-        if n < 15:
-            return 0
-        elif n < 25:
-            return 5
-        elif n < 45:
-            return 8
-        elif n < 70:
-            return 10.5
+        if n < 10:
+            delay = 0
+        elif n < 20:
+            delay = 5
+        elif n < 40:
+            delay = 8
+        elif n < 50:
+            delay = 10.5
         else:
-            return 14
+            delay = 14
+
+        self.total_delay += delay
+        self.truck_count += 1
+        return delay
 
     def __str__(self):
         return type(self).__name__ + str(self.unique_id)
@@ -112,9 +119,10 @@ class Bridge(Infra):
         else:
             breakdown_delay = 0
 
-        crossing_delay = breakdown_delay + self.get_congestion_delay()
-        self.total_delay += crossing_delay
-        self.truck_count += 1
+        congestion_delay = self.get_congestion_delay()
+        crossing_delay = breakdown_delay + congestion_delay
+        self.total_delay += breakdown_delay
+
         return crossing_delay
 
 # ---------------------------------------------------------------
@@ -349,5 +357,6 @@ class Vehicle(Agent):
         self.location = next_infra
         self.location_offset = location_offset
         self.location.vehicle_count += 1
+        self.location.throughput += 1
 
 # EOF -----------------------------------------------------------

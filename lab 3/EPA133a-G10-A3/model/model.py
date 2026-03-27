@@ -211,14 +211,57 @@ class BangladeshModel(Model):
         df.to_csv(f"scenario{self.scenario_A3}.csv", index=False)
         print(f"Saved results to scenario{self.scenario_A3}.csv")
 
-    def get_unique_od_pairs(self):
-        if not self.output_data:
-            return []
-        pairs = set((d['source_id'], d['sink_id']) for d in self.output_data)
-        for source_id, sink_id in sorted(pairs):
-            src = self.schedule._agents.get(source_id)
-            snk = self.schedule._agents.get(sink_id)
-            print(f"  {source_id} ({src.name if src else '?'}) "
-                  f"-> {sink_id} ({snk.name if snk else '?'})")
-        return pairs
+    def get_vulnerability_summary(self, top_n=10):
+        records = []
+        for agent in self.schedule.agents:
+            if isinstance(agent, (Bridge, Link, Intersection)):
+                if agent.truck_count > 0:
+                    records.append({
+                        'id': agent.unique_id,
+                        'name': agent.name,
+                        'road': agent.road_name,
+                        'type': type(agent).__name__,
+                        'condition': getattr(agent, 'condition', '-'),
+                        'length_m': agent.length,
+                        'throughput': agent.throughput,
+                        'truck_count': agent.truck_count,
+                        'total_delay_min': agent.total_delay,
+                        'avg_delay_per_truck': agent.total_delay / agent.truck_count,
+                        'current_vehicles': agent.vehicle_count,
+                    })
+        df = pd.DataFrame(records)
+        if df.empty:
+            return df
+
+        # Top overall
+        top_overall = df.sort_values('total_delay_min', ascending=False).head(top_n)
+
+        # Top per type so bridges don't bury links/intersections
+        top_per_type = (
+            df.sort_values('total_delay_min', ascending=False)
+            .groupby('type')
+            .head(top_n)
+            .sort_values(['type', 'total_delay_min'], ascending=[True, False])
+        )
+
+        return top_overall.reset_index(drop=True), top_per_type.reset_index(drop=True)
+
+    def get_traffic_hotspots(self, top_n=10):
+        records = []
+        for agent in self.schedule.agents:
+            if isinstance(agent, (Bridge, Link, Intersection)):
+                records.append({
+                    'id': agent.unique_id,
+                    'name': agent.name,
+                    'road': agent.road_name,
+                    'type': type(agent).__name__,
+                    'condition': getattr(agent, 'condition', '-'),
+                    'length_m': agent.length,
+                    'throughput': agent.throughput,
+                    'current_vehicles': agent.vehicle_count,
+                })
+        df = pd.DataFrame(records)
+        if df.empty:
+            return df
+        return df.sort_values('throughput', ascending=False).head(top_n).reset_index(drop=True)
 # EOF -----------------------------------------------------------
