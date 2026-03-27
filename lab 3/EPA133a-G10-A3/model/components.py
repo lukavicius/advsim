@@ -40,6 +40,19 @@ class Infra(Agent):
             if self.state == Vehicle.State.DRIVE:
                 self.drive()
 
+    def get_congestion_delay(self):
+        n = self.vehicle_count
+        if n < 15:
+            return 0
+        elif n < 25:
+            return 5
+        elif n < 45:
+            return 8
+        elif n < 70:
+            return 10.5
+        else:
+            return 14
+
     def __str__(self):
         return type(self).__name__ + str(self.unique_id)
 
@@ -85,39 +98,9 @@ class Bridge(Infra):
         Includes base driving delay plus stochastic breakdown and congestion delays.
         """
         # Base driving time at truck speed (48 km/h)
-        truck_speed_kmh = 48
-        speed_m_per_min = (truck_speed_kmh * 1000) / 60
-        driving_delay = self.length / speed_m_per_min
+        self.broken = self.model.random.random() < self.breakdown_prob
 
-        # Add congestion delay based on traffic
-        traffic = self.model.traffic_dict.get(self.road_name, {})
-
-        volume = (
-            traffic.get('Heavy Truck per timestep (each end)', 0) +
-            traffic.get('Medium Truck per timestep (each end)', 0) +
-            traffic.get('Small Truck per timestep (each end)', 0)
-        )
-
-        volume_per_hour = volume * 12
-
-        if volume_per_hour < 200:
-            congestion_delay = 0
-
-        elif volume_per_hour < 500:
-            congestion_delay = 6
-
-        elif volume_per_hour < 700:
-            congestion_delay = 8
-
-        elif volume_per_hour < 1100:
-            congestion_delay = 10.5
-
-        else:
-            congestion_delay = 14
-
-        # Stochastic breakdown delay based on condition probability
-        breakdown_delay = 0
-        if self.model.random.random() < self.breakdown_prob:
+        if self.broken:
             if self.length > 200:
                 breakdown_delay = self.model.random.triangular(60, 240, 120)
             elif 50 <= self.length <= 200:
@@ -126,12 +109,13 @@ class Bridge(Infra):
                 breakdown_delay = self.model.random.uniform(15, 60)
             else:
                 breakdown_delay = self.model.random.uniform(10, 20)
+        else:
+            breakdown_delay = 0
 
-        self.total_delay += breakdown_delay + driving_delay + congestion_delay
+        crossing_delay = breakdown_delay + self.get_congestion_delay()
+        self.total_delay += crossing_delay
         self.truck_count += 1
-
-        return self.total_delay
-
+        return crossing_delay
 
 # ---------------------------------------------------------------
 class Link(Infra):
@@ -309,9 +293,6 @@ class Vehicle(Agent):
             self.drive()
 
     def drive(self):
-        """
-        Move the vehicle forward by one tick's worth of distance.
-        """
         distance = Vehicle.speed * Vehicle.step_time
         distance_rest = self.location_offset + distance - self.location.length
 
@@ -321,62 +302,49 @@ class Vehicle(Agent):
             self.location_offset += distance
 
     def drive_to_next(self, distance):
-        """
-        Advance the vehicle to the next infrastructure component(s) in its path.
-        Handles sink arrival, bridge delays, and multi-hop movement.
-        """
-        while distance > 0 and self.location_index < len(self.path_ids) - 1:
+        self.location_index += 1
+        next_id = self.path_ids[self.location_index]
+        next_infra = self.model.infra_dict[next_id]
 
-            # Capture current location ID before it is overwritten by arrive_at_next
-            current_id = self.location.unique_id
+        self.route_length += next_infra.length
 
-            self.location_index += 1
-            next_id = self.path_ids[self.location_index]
-            next_infra = self.model.infra_dict[next_id]
+        if isinstance(next_infra, Sink):
+            self.arrive_at_next(next_infra, 0)
+            self.removed_at_step = self.model.schedule.steps
+            travel_time = self.removed_at_step - self.generated_at_step
+            self.model.output_data.append({
+                'travel_time': travel_time,
+                'route_length': self.route_length,
+                'generated_at': self.generated_at_step,
+                'removed_at': self.removed_at_step,
+                'source_id': self.generated_by.unique_id,
+                'sink_id': next_infra.unique_id,
+            })
+            self.location.remove(self)
+            return
 
-            # Accumulate route length using the correct source node of the edge
-            edge_data = self.model.graph.get_edge_data(current_id, next_infra.unique_id)
-            if edge_data is not None:
-                self.route_length += edge_data["weight"]
-            else:
-                self.route_length += next_infra.length
-
-            # Check if this is the intended destination
-            if next_infra.unique_id == self.sink_id:
-                self.location.vehicle_count -= 1  # ← this is missing
-                self.removed_at_step = self.model.schedule.steps
-                travel_time = self.removed_at_step - self.generated_at_step
-                self.model.output_data.append({
-                    'travel_time': travel_time,
-                    'route_length': self.route_length,
-                    'generated_at': self.generated_at_step,
-                    'removed_at': self.removed_at_step,
-                    'source_id': self.generated_by.unique_id,
-                    'sink_id': next_infra.unique_id,
-                })
-                next_infra.remove(self)
+        elif isinstance(next_infra, Bridge):
+            self.waiting_time = next_infra.get_delay_time()
+            if self.waiting_time > 0:
+                self.arrive_at_next(next_infra, 0)
+                self.state = Vehicle.State.WAIT
                 return
 
-            # Handle bridge crossings with potential delay
-            elif isinstance(next_infra, Bridge):
-                self.waiting_time = next_infra.get_delay_time()
-                if self.waiting_time > 0:
-                    self.arrive_at_next(next_infra, 0)
-                    self.state = Vehicle.State.WAIT
-                    return
+        else:
+            # Links and intersections: congestion only
+            self.waiting_time = next_infra.get_congestion_delay()
+            if self.waiting_time > 0:
+                self.arrive_at_next(next_infra, 0)
+                self.state = Vehicle.State.WAIT
+                return
 
-            # Stay on this component if it is longer than remaining distance
-            if next_infra.length >= distance:
-                self.arrive_at_next(next_infra, distance)
-                distance = 0
-            else:
-                self.arrive_at_next(next_infra, next_infra.length)
-                distance -= next_infra.length
+        if next_infra.length > distance:
+            self.arrive_at_next(next_infra, distance)
+        else:
+            self.arrive_at_next(next_infra, 0)
+            self.drive_to_next(distance - next_infra.length)
 
     def arrive_at_next(self, next_infra, location_offset):
-        """
-        Update vehicle location to the next infrastructure component.
-        """
         self.location.vehicle_count -= 1
         self.location = next_infra
         self.location_offset = location_offset

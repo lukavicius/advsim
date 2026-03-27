@@ -163,16 +163,12 @@ class BangladeshModel(Model):
             # Check cached path
             cached = self.path_ids_dict[source_id, sink_id]
             if not cached.empty:
-                if len(cached) >= 15:
-                    return cached
-                continue
+                return cached
 
             # Try NetworkX shortest path
             try:
                 node_path = nx.shortest_path(self.graph, source=source_id,
                                              target=sink_id, weight='weight')
-                if len(node_path) < 15:
-                    continue
                 path_series = pd.Series(node_path, dtype=int)
                 self.path_ids_dict[source_id, sink_id] = path_series
                 self.path_ids_dict[sink_id, source_id] = path_series[::-1].reset_index(drop=True)
