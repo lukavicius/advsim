@@ -10,9 +10,10 @@ run_length = 7200
 # set up seeds
 np.random.seed(42)  # fixed master seed
 max_seed = np.iinfo(np.int32).max
-seeds = np.random.randint(0, max_seed, size=1)
+seeds = np.random.randint(0, max_seed, size=10)
 
 print("Seeds used for all scenarios:")
+
 print(seeds)
 
 # Run all scenarios
