@@ -67,8 +67,8 @@ for s_num in range(5):
                 "sink_name": snk.name if snk else '?',
             })
 
-        hotspots = model.get_traffic_hotspots(top_n=100)
-        vuln_overall, vuln_by_type = model.get_vulnerability_summary(top_n=100)
+        hotspots = model.get_traffic_hotspots(top_n=200)
+        vuln_overall, vuln_by_type = model.get_vulnerability_summary(top_n=200)
         hotspots.to_csv(f"experiment/scenario{s_num}_rep{rep_index + 1}_hotspots.csv", index=False)
         vuln_overall.to_csv(f"experiment/scenario{s_num}_rep{rep_index + 1}_vulnerability.csv", index=False)
         vuln_by_type.to_csv(f"experiment/scenario{s_num}_rep{rep_index + 1}_vulnerability_by_type.csv", index=False)
