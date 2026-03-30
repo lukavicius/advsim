@@ -13,24 +13,29 @@ Created by: EPA133a Group 10
 
 ## Introduction
 
-This repository contains the code and report for Assignment 3 for the course EPA133A, Advance Simulation. In this assignment, the simple model created in assignment 2 is expanded by adding the N2 road to the simulation, as well as the main side roads that are connected to the two roads. 
-Multiple scenarios are evaluated, and the script runs the simulation and generates visualisations of the results.
-
+This repository contains the code and report for Assignment 4 for the course EPA133A, Advance Simulation. 
+In this assignment, the network created in assignments 1,2 and 3 will be analysed with the focus on the vulnerability and criticality.
+It is both important to understand how busy it is on different road parts (criticality) and to present the results in relation to 
+the properties of the road itself (vulnerability).
+Simulation experiments have been chosen to analyse the road network for traffic density.
 ##### Repository Content
 
-* *Assignment 3 Group 10 Report:* Report explaining data preprocessing, model design and experiment results for this assignment.
-* *EPA133a-G10-A3*: Folder with code for this assignment where:
+* *Assignment 4 Group 10 Report:* Report explaining data preprocessing, model design and experiment results for this assignment.
+* *EPA133a-G10-A4*: Folder with code for this assignment where:
   * *data*: 
     * preprocessing of data in [data-preprocessing.ipynb](data/preprocessing/data-preprocessing.ipynb), preprocessed data in [processed_data.csv](data/preprocessing/processed_data.csv). Roads N1, N2 and side roads are selected here.
     * finding of intersections in find_intersections.ipynb and found intersections in intersections.csv.
-    * bonus assignment; the code for finding the more accurate locations of the intersections is below the code for determining the intersections as asked for in the general assignment.
+    * creation of different forms of traffic in traffic_preprocess.ipynb, which can be found in traffic_metrics_per_timestep.csv 
   * *model*: model python files:
     * *components.py*: behaviour and characteristics of the model components are defined, including agents such as trucks and infrastructure elements such as bridges.
     * *model.py*: contains the BangladeshModel simulation design which is a subclass of Mesa Model. It reads the preprocessed data to generate the transport model. It now also initialises the networkx graph and Mesa environment. 
     * *model_run.py*: sets up the model run conditions and 5 scenarios, calls the model and runs the scenario experiments without visualization.
     * *model_viz.py*: sets up the visualization, uses the SimpleCanvas element defined by *model.py*, calls the model and runs the visualization server.
   * *experiment*: stores the results of the scenario experiment in csvs.
-    *  [experiment_viz.ipynb](data/preprocessing/data-preprocessing.ipynb): script to visualize the average speed per scenario and top bridges depending on scenario results.
+    *  [experiment_results_viz.ipynb](data/preprocessing/data-preprocessing.ipynb): script to visualize the average vehicle route length, distribution of driving speeds per scenario, 
+    average driving time per scenario and weighted variability of driving speeds per scenario
+    * [vulnerability_experiments_vis.ipynb](model/experiment/vulnerability_experiments_vis.ipynb): script to present the results in relation to the properties of the road itself
+    by creating plots and heatmaps of the different scenarios. 
 
 #####
 
