@@ -19,6 +19,7 @@ class Infra(Agent):
         the length in meters
     """
 
+    #initiallise agent parent class and setting up core physical attributes
     def __init__(self, unique_id, model, length=0,
                  name='Unknown', road_name='Unknown'):
         super().__init__(unique_id, model)
@@ -30,6 +31,7 @@ class Infra(Agent):
         self.truck_count = 0
         self.throughput = 0
 
+    #creating infrastructure behaviour for every tick in the simulation
     def step(self):
         def step(self):
             if self.state == Vehicle.State.WAIT:
@@ -43,6 +45,8 @@ class Infra(Agent):
             if self.state == Vehicle.State.DRIVE:
                 self.drive()
 
+    #calculation of the delay based on current vehicle density (=vehicle_count)
+    #the higher the count, the longer the delay to simulate a real traffic jam
     def get_congestion_delay(self):
         n = self.vehicle_count
         if n < 8:
@@ -56,6 +60,7 @@ class Infra(Agent):
         else:
             delay = 14
 
+        #tracking of the total delay
         self.total_delay += delay
         self.truck_count += 1
         return delay

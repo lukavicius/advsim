@@ -6,7 +6,7 @@ import pandas as pd
 from collections import defaultdict
 import networkx as nx
 
-
+#calculating the bounds of the model with the small buffer
 def set_lat_lon_bound(lat_min, lat_max, lon_min, lon_max, edge_ratio=0.02):
     lat_edge = (lat_max - lat_min) * edge_ratio
     lon_edge = (lon_max - lon_min) * edge_ratio
@@ -17,6 +17,7 @@ def set_lat_lon_bound(lat_min, lat_max, lon_min, lon_max, edge_ratio=0.02):
     return y_min, y_max, x_min, x_max
 
 # ---------------------------------------------------------------
+#defining probabilities of bridge failure
 SCENARIOS = {
     0: {"A": 0,  "B": 0,  "C": 0,  "D": 0},
     1: {"A": 0,  "B": 0,  "C": 0,  "D": 5},
@@ -34,6 +35,7 @@ class BangladeshModel(Model):
     def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0,
                  scenario_A3=0, run_number=0):
 
+        #initialising mesa model and creating tracking dictionarties and schedulers
         super().__init__(seed=seed)
         self.scenario_A3  = scenario_A3
         self.run_number   = run_number
@@ -41,10 +43,13 @@ class BangladeshModel(Model):
 
         self.schedule      = BaseScheduler(self)
         self.running       = True
+        #for efficiency, store pre-calculated paths
         self.path_ids_dict = defaultdict(lambda: pd.Series(dtype=int))
         self.space         = None
         self.sources       = []
         self.sinks         = []
+
+        #initialise the map to represent the road topology
         self.graph         = nx.Graph()
 
         self.active_scenario = SCENARIOS.get(scenario_A3, SCENARIOS[0])
@@ -54,6 +59,7 @@ class BangladeshModel(Model):
 
         self.generate_model()
 
+    #build the simulation environment, so create the agents, space and graph
     def generate_model(self):
 
         df = pd.read_csv(self.file_name)
@@ -62,6 +68,7 @@ class BangladeshModel(Model):
         df_objects_all = []
 
         for road in roads:
+            #process every road section to find path IDS of both ways
             df_objects_on_road = df[df['road'] == road]
             if df_objects_on_road.empty:
                 continue
@@ -69,6 +76,7 @@ class BangladeshModel(Model):
             df_objects_all.append(df_objects_on_road)
 
             # Get the sequence of IDs as they appear in the CSV (the canonical path)
+            #map both the start and end
             path_ids = df_objects_on_road['id'].reset_index(drop=True)
             path_ids_rev = path_ids[::-1].reset_index(drop=True)
 
@@ -81,7 +89,7 @@ class BangladeshModel(Model):
             self.path_ids_dict[path_ids.iloc[0], path_ids.iloc[-1]] = path_ids
             self.path_ids_dict[path_ids.iloc[-1], path_ids.iloc[0]] = path_ids_rev
 
-        # Space bounds
+        # create space bounds using the extremes
         df_all = pd.concat(df_objects_all)
         y_min, y_max, x_min, x_max = set_lat_lon_bound(
             df_all['lat'].min(), df_all['lat'].max(),
@@ -105,7 +113,7 @@ class BangladeshModel(Model):
                 length     = float(row['length']) if not pd.isna(row['length']) else 0.0
                 agent      = None
 
-                # Create the Mesa agent only once per ID.
+                # Create the Mesa agent only once per ID and add to the scheduler
                 if agent_id not in created_ids:
                     if model_type == 'sourcesink':
                         agent = SourceSink(agent_id, self, length, name, row['road'])
@@ -150,9 +158,11 @@ class BangladeshModel(Model):
                   f"check intersection IDs in processed_data.csv")
         self.infra_dict = {a.unique_id: a for a in self.schedule.agents}
 
+    #starting point for agents to ask for a destination and route
     def get_route(self, source_id):
         return self.get_random_route(source_id)
 
+    #selecting a random end point and using nx shorthest path to find the way
     def get_random_route(self, source_id):
         attempts = 0
         while True:
@@ -160,7 +170,7 @@ class BangladeshModel(Model):
             if sink_id == source_id:
                 continue
 
-            # Check cached path
+            # Check if route was already calculated and cached
             cached = self.path_ids_dict[source_id, sink_id]
             if not cached.empty:
                 return cached
@@ -181,19 +191,23 @@ class BangladeshModel(Model):
     def get_straight_route(self, source_id):
         return self.path_ids_dict[source_id, None]
 
+    #advance the simulation one tick
     def step(self):
         self.schedule.step()
 
+    #retrieving driving time
     def get_driving_times(self):
         if not self.output_data:
             return [0]
         return [d['travel_time'] for d in self.output_data]
 
+    #retrieving route length
     def get_route_lengths(self):
         if not self.output_data:
             return [0]
         return [d['route_length'] for d in self.output_data if d['route_length'] is not None]
 
+    #retrieve bridge delay summary in records
     def get_bridge_delay_summary(self):
         records = []
         for agent in self.schedule.agents:
@@ -206,11 +220,14 @@ class BangladeshModel(Model):
                 })
         return pd.DataFrame(records)
 
+    #save the scenario results to a csv
     def save_scenario_results(self, replication_results):
         df = pd.DataFrame(replication_results)
         df.to_csv(f"scenario{self.scenario_A3}.csv", index=False)
         print(f"Saved results to scenario{self.scenario_A3}.csv")
 
+    #important part of this specific assignment 4;
+    #this function analyses total delay time across all infrastructure to find high impact failure points
     def get_vulnerability_summary(self, top_n=10):
         records = []
         for agent in self.schedule.agents:
@@ -234,6 +251,8 @@ class BangladeshModel(Model):
             return df
 
         # Top overall
+        #use .sort_values() method to sort infrastructure by the total accummulated delay
+        # top down with highest delay as first values (because ascending=false)
         top_overall = df.sort_values('total_delay_min', ascending=False).head(top_n)
 
         # Top per type so bridges don't bury links/intersections
@@ -246,6 +265,8 @@ class BangladeshModel(Model):
 
         return top_overall.reset_index(drop=True), top_per_type.reset_index(drop=True)
 
+    #important part of this specific assignment 4 part 2:
+    #this function identifies the locations with the highest throughput == most vehicles passed
     def get_traffic_hotspots(self, top_n=10):
         records = []
         for agent in self.schedule.agents:
